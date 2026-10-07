@@ -25,6 +25,11 @@ Focus a pane and invoke **Toggle column layout** from Herdr's plugin actions. To
 | `align-left` / `align-right` | Put the pane at the terminal edge |
 | `center` | Center the pane |
 
+For a shell wrapper that launches an interactive program, the executable also
+accepts idempotent `enter` and `leave` commands. They use the current pane's
+`HERDR_SOCKET_PATH` and `HERDR_PANE_ID` and run synchronously, so a wrapper
+can enter the layout, run the program, then restore the pane when it exits.
+
 ## Width settings
 
 Create `config.json` in the directory printed by `herdr plugin config-dir coryfklein.herdr-layout`:

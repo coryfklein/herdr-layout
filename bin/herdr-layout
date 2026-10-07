@@ -29,8 +29,11 @@ def command(*args):
 
 def config():
     directory = os.environ.get("HERDR_PLUGIN_CONFIG_DIR")
-    path = Path(directory, "config.json") if directory else None
-    data = json.loads(path.read_text()) if path and path.exists() else {}
+    if not directory:
+        directory = (Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+                     / "herdr" / "plugins" / "config" / "coryfklein.herdr-layout")
+    path = Path(directory, "config.json")
+    data = json.loads(path.read_text()) if path.exists() else {}
     columns = data.get("columns", DEFAULT_COLUMNS)
     step = data.get("resize_step", DEFAULT_STEP)
     if (type(columns) is not int or type(step) is not int
@@ -211,7 +214,11 @@ def rebuild(state):
 
 
 def state_directory():
-    return Path(os.environ["HERDR_PLUGIN_STATE_DIR"])
+    directory = os.environ.get("HERDR_PLUGIN_STATE_DIR")
+    if directory:
+        return Path(directory)
+    return (Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state"))
+            / "herdr" / "plugins" / "coryfklein.herdr-layout")
 
 
 class LockedState:
@@ -244,7 +251,6 @@ def start_watcher(socket, watch_id):
 
 
 def action(name):
-    default_columns, step = config()
     socket = os.environ["HERDR_SOCKET_PATH"]
     pane = os.environ["HERDR_PANE_ID"]
     with LockedState() as locked:
@@ -258,12 +264,19 @@ def action(name):
                 del locked.states[socket]
                 locked.save()
                 state = None
-        if name == "toggle":
-            if state:
+        if name in ("toggle", "enter", "leave"):
+            if state and name == "enter":
+                if pane != state["pane"]:
+                    raise ValueError("layout is active in another pane")
+                return
+            if state and name in ("toggle", "leave"):
+                if pane != state["pane"]:
+                    raise ValueError("focus the layout pane first")
                 leave(state)
                 del locked.states[socket]
                 locked.save()
-            else:
+            elif not state and name in ("toggle", "enter"):
+                default_columns, _ = config()
                 state = enter(pane, default_columns)
                 locked.states[socket] = state
                 try:
@@ -277,6 +290,7 @@ def action(name):
             raise ValueError("layout is not active")
         if pane != state["pane"]:
             raise ValueError("focus the layout pane first")
+        default_columns, step = config()
         if name == "wider":
             state["columns"] += step
         elif name == "narrower":
