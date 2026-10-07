@@ -1,0 +1,60 @@
+id = "coryfklein.herdr-layout"
+name = "Herdr Layout"
+version = "0.1.0"
+min_herdr_version = "0.9.0"
+description = "Size and align a live pane by terminal columns"
+platforms = ["linux", "macos"]
+
+[[actions]]
+id = "toggle"
+title = "Toggle column layout"
+contexts = ["pane"]
+command = ["bin/herdr-layout", "toggle"]
+
+[[actions]]
+id = "wider"
+title = "Widen by configured columns"
+contexts = ["pane"]
+command = ["bin/herdr-layout", "wider"]
+
+[[actions]]
+id = "narrower"
+title = "Narrow by configured columns"
+contexts = ["pane"]
+command = ["bin/herdr-layout", "narrower"]
+
+[[actions]]
+id = "reset-width"
+title = "Reset to default width"
+contexts = ["pane"]
+command = ["bin/herdr-layout", "reset-width"]
+
+[[actions]]
+id = "move-left"
+title = "Move one column left"
+contexts = ["pane"]
+command = ["bin/herdr-layout", "move-left"]
+
+[[actions]]
+id = "move-right"
+title = "Move one column right"
+contexts = ["pane"]
+command = ["bin/herdr-layout", "move-right"]
+
+[[actions]]
+id = "align-left"
+title = "Align to left edge"
+contexts = ["pane"]
+command = ["bin/herdr-layout", "align-left"]
+
+[[actions]]
+id = "align-right"
+title = "Align to right edge"
+contexts = ["pane"]
+command = ["bin/herdr-layout", "align-right"]
+
+[[actions]]
+id = "center"
+title = "Center pane"
+contexts = ["pane"]
+command = ["bin/herdr-layout", "center"]

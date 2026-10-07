@@ -1,0 +1,345 @@
+#!/usr/bin/env python3
+"""Keep one live Herdr pane at a chosen width in terminal columns."""
+
+import fcntl
+import json
+import math
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+DEFAULT_COLUMNS = 90
+DEFAULT_STEP = 10
+MIN_COLUMNS = 40
+
+
+def command(*args):
+    completed = subprocess.run(
+        [os.environ.get("HERDR_BIN_PATH", "herdr"), *map(str, args)],
+        capture_output=True, text=True,
+    )
+    if completed.returncode:
+        raise RuntimeError(completed.stderr.strip() or completed.stdout.strip())
+    if not completed.stdout.strip():
+        return None
+    return json.loads(completed.stdout).get("result")
+
+
+def config():
+    directory = os.environ.get("HERDR_PLUGIN_CONFIG_DIR")
+    path = Path(directory, "config.json") if directory else None
+    data = json.loads(path.read_text()) if path and path.exists() else {}
+    columns = data.get("columns", DEFAULT_COLUMNS)
+    step = data.get("resize_step", DEFAULT_STEP)
+    if (type(columns) is not int or type(step) is not int
+            or columns < MIN_COLUMNS or step < 1):
+        raise ValueError("columns must be at least 40 and resize_step must be positive integers")
+    return columns, step
+
+
+def geometry(pane_id):
+    data = command("pane", "layout", "--pane", pane_id)["layout"]
+    pane = next(item for item in data["panes"] if item["pane_id"] == pane_id)
+    return {
+        "workspace": data["workspace_id"],
+        "tab": data["tab_id"],
+        "zoomed": data["zoomed"],
+        "area_width": data["area"]["width"],
+        "pane_width": pane["rect"]["width"],
+        "pane_x": pane["rect"]["x"],
+    }
+
+
+def placement(width, requested, alignment, offset=0):
+    if width < 20:
+        raise ValueError("terminal is too narrow for layout panes")
+    minimum = max(1, math.ceil(width * 0.1) - 1)
+    if alignment in ("left", "right"):
+        columns = min(requested, width - minimum - 1)
+    else:
+        columns = min(requested, width - 2 * minimum - 2)
+    if columns < 2:
+        raise ValueError("terminal is too narrow for layout panes")
+    if alignment == "left":
+        return columns, 0, width - columns - 1
+    if alignment == "right":
+        return columns, width - columns - 1, 0
+    room = width - columns - 2
+    left = max(minimum, min(room - minimum, room // 2 + offset))
+    return columns, left, room - left
+
+
+def split(pane, ratio):
+    result = command("pane", "split", pane, "--direction", "right",
+                     "--ratio", ratio, "--no-focus")
+    return result["pane"]["pane_id"]
+
+
+def close(pane):
+    if pane:
+        try:
+            command("pane", "close", pane)
+        except RuntimeError:
+            pass
+
+
+def spacer(pane):
+    executable = str(Path(__file__).resolve()).replace("'", "'\"'\"'")
+    command("pane", "send-text", pane, f"exec '{executable}' spacer")
+    command("pane", "send-keys", pane, "enter")
+
+
+def margins(pane, requested, alignment, offset):
+    width = geometry(pane)["area_width"]
+    columns, left_width, right_width = placement(width, requested, alignment, offset)
+    if left_width == 0:
+        right = split(pane, (columns + 1) / width)
+        try:
+            spacer(right)
+            correct_width(pane, None, right, columns)
+        except Exception:
+            close(right)
+            raise
+        return None, right, width
+    left = split(pane, (left_width + 1) / width)
+    try:
+        command("pane", "swap", "--source-pane", pane, "--target-pane", left)
+        if right_width == 0:
+            spacer(left)
+            correct_width(pane, left, None, columns)
+            return left, None, width
+        right = split(pane, (columns + 1) / (width - left_width - 1))
+        try:
+            spacer(left)
+            spacer(right)
+            correct_width(pane, left, right, columns)
+        except Exception:
+            close(right)
+            raise
+        return left, right, width
+    except Exception:
+        close(left)
+        raise
+
+
+def correct_width(pane, left, right, columns):
+    for _ in range(3):
+        current = geometry(pane)
+        difference = current["pane_width"] - columns
+        if difference == 0:
+            return
+        if right:
+            parent_width = current["area_width"] - current["pane_x"]
+            target = right if difference > 0 else pane
+            direction = "left" if difference > 0 else "right"
+        else:
+            parent_width = current["area_width"]
+            target = left if difference > 0 else pane
+            direction = "right" if difference > 0 else "left"
+        command("pane", "resize", "--pane", target, "--direction", direction,
+                "--amount", abs(difference) / parent_width)
+        if geometry(pane)["pane_width"] == current["pane_width"]:
+            return
+
+
+def move_new_tab(pane, workspace):
+    result = command("pane", "move", pane, "--new-tab", "--workspace",
+                     workspace, "--label", "Layout", "--focus")
+    return result.get("pane", result.get("move_result", {}).get("pane"))["pane_id"]
+
+
+def move_back(pane, tab, placeholder):
+    result = command("pane", "move", pane, "--tab", tab, "--split", "right",
+                     "--target-pane", placeholder, "--ratio", "0.5", "--focus")
+    return result.get("pane", result.get("move_result", {}).get("pane"))["pane_id"]
+
+
+def enter(pane, columns):
+    original = geometry(pane)
+    if original["zoomed"]:
+        command("pane", "zoom", pane, "--off")
+    try:
+        placeholder = split(pane, 0.5)
+    except Exception:
+        if original["zoomed"]:
+            command("pane", "zoom", pane, "--on")
+        raise
+    moved = False
+    try:
+        pane = move_new_tab(pane, original["workspace"])
+        moved = True
+        left, right, width = margins(pane, columns, "center", 0)
+    except Exception:
+        if moved:
+            try:
+                pane = move_back(pane, original["tab"], placeholder)
+                close(placeholder)
+                if original["zoomed"]:
+                    command("pane", "zoom", pane, "--on")
+            except Exception:
+                pass
+        else:
+            close(placeholder)
+        raise
+    return {
+        "pane": pane, "source_tab": original["tab"], "placeholder": placeholder,
+        "left": left, "right": right, "columns": columns,
+        "alignment": "center", "offset": 0, "zoomed": original["zoomed"],
+        "area_width": width, "watch_id": time.time_ns(),
+    }
+
+
+def leave(state):
+    close(state["left"])
+    close(state["right"])
+    pane = move_back(state["pane"], state["source_tab"], state["placeholder"])
+    close(state["placeholder"])
+    if state["zoomed"]:
+        command("pane", "zoom", pane, "--on")
+
+
+def rebuild(state):
+    close(state["left"])
+    close(state["right"])
+    state["left"] = state["right"] = None
+    left, right, width = margins(
+        state["pane"], state["columns"], state["alignment"], state["offset"]
+    )
+    state.update(left=left, right=right, area_width=width)
+
+
+def state_directory():
+    return Path(os.environ["HERDR_PLUGIN_STATE_DIR"])
+
+
+class LockedState:
+    def __enter__(self):
+        self.directory = state_directory()
+        self.directory.mkdir(parents=True, exist_ok=True)
+        self.lock = (self.directory / "state.lock").open("a+")
+        fcntl.flock(self.lock, fcntl.LOCK_EX)
+        path = self.directory / "state.json"
+        self.states = json.loads(path.read_text()) if path.exists() else {}
+        return self
+
+    def save(self):
+        temporary = self.directory / f"state.{os.getpid()}.tmp"
+        temporary.write_text(json.dumps(self.states))
+        os.replace(temporary, self.directory / "state.json")
+
+    def __exit__(self, *_):
+        fcntl.flock(self.lock, fcntl.LOCK_UN)
+        self.lock.close()
+
+
+def start_watcher(socket, watch_id):
+    subprocess.Popen(
+        [sys.executable, str(Path(__file__).resolve()), "watch", str(watch_id)],
+        env={**os.environ, "HERDR_SOCKET_PATH": socket},
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL, start_new_session=True,
+    )
+
+
+def action(name):
+    default_columns, step = config()
+    socket = os.environ["HERDR_SOCKET_PATH"]
+    pane = os.environ["HERDR_PANE_ID"]
+    with LockedState() as locked:
+        state = locked.states.get(socket)
+        if state:
+            try:
+                stale = geometry(state["pane"])["tab"] == state["source_tab"]
+            except Exception:
+                stale = True
+            if stale:
+                del locked.states[socket]
+                locked.save()
+                state = None
+        if name == "toggle":
+            if state:
+                leave(state)
+                del locked.states[socket]
+                locked.save()
+            else:
+                state = enter(pane, default_columns)
+                locked.states[socket] = state
+                try:
+                    locked.save()
+                except Exception:
+                    leave(state)
+                    raise
+                start_watcher(socket, state["watch_id"])
+            return
+        if not state:
+            raise ValueError("layout is not active")
+        if pane != state["pane"]:
+            raise ValueError("focus the layout pane first")
+        if name == "wider":
+            state["columns"] += step
+        elif name == "narrower":
+            state["columns"] = max(MIN_COLUMNS, state["columns"] - step)
+        elif name == "reset-width":
+            state["columns"] = default_columns
+        elif name == "center":
+            state.update(alignment="center", offset=0)
+        elif name in ("align-left", "align-right"):
+            state.update(alignment=name.removeprefix("align-"), offset=0)
+        elif name in ("move-left", "move-right"):
+            delta = -1 if name == "move-left" else 1
+            if state["alignment"] in ("left", "right"):
+                width = geometry(state["pane"])["area_width"]
+                _, centered_left, _ = placement(width, state["columns"], "center")
+                state["offset"] = (
+                    -centered_left if state["alignment"] == "left"
+                    else width - state["columns"] - 1 - centered_left
+                )
+            state["alignment"] = "offset"
+            state["offset"] += delta
+        else:
+            raise ValueError(f"unknown action: {name}")
+        rebuild(state)
+        locked.save()
+
+
+def watch(watch_id):
+    socket = os.environ["HERDR_SOCKET_PATH"]
+    while True:
+        time.sleep(0.6)
+        with LockedState() as locked:
+            state = locked.states.get(socket)
+            if not state or state["watch_id"] != watch_id:
+                return
+            try:
+                current = geometry(state["pane"])
+            except Exception:
+                return
+            if current["tab"] == state["source_tab"]:
+                return
+            if current["area_width"] != state["area_width"]:
+                rebuild(state)
+                locked.save()
+
+
+def spacer_loop():
+    sys.stdout.write("\x1b[2J\x1b[H\x1b[?25l")
+    sys.stdout.flush()
+    while True:
+        time.sleep(3600)
+
+
+if __name__ == "__main__":
+    try:
+        if len(sys.argv) < 2:
+            raise ValueError("expected a plugin action")
+        if sys.argv[1] == "spacer":
+            spacer_loop()
+        elif sys.argv[1] == "watch":
+            watch(int(sys.argv[2]))
+        else:
+            action(sys.argv[1])
+    except (OSError, ValueError, RuntimeError, KeyError, StopIteration) as error:
+        print(f"herdr-layout: {error}", file=sys.stderr)
+        sys.exit(1)
