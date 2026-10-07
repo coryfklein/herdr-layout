@@ -6,6 +6,8 @@ The margins ignore typed input. Layout shortcuts also work after a margin is cli
 
 The default width is **90 columns**. The plugin watches the layout and reapplies the chosen width after terminal or sidebar resizing. It does not start, resume, or reconnect Codex; use `codex resume` yourself when you want that.
 
+Layouts are tracked per pane, so multiple Codex sessions in the same Herdr server can use independent widths and alignment.
+
 ## Install
 
 Requires Herdr 0.9 or later, Python 3, macOS or Linux.
