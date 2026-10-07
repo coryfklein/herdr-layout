@@ -2,6 +2,8 @@
 
 A [Herdr](https://herdr.dev) plugin that gives a live terminal pane a readable width measured in character columns. It moves the pane into a dedicated tab with real Herdr margin panes, so mouse selection stays within the content pane. The process and scrollback remain attached to the original pane.
 
+The margins ignore typed input. Layout shortcuts also work after a margin is clicked and return focus to the content pane.
+
 The default width is **90 columns**. The plugin watches the layout and reapplies the chosen width after terminal or sidebar resizing. It does not start, resume, or reconnect Codex; use `codex resume` yourself when you want that.
 
 ## Install
@@ -47,35 +49,35 @@ When the available terminal area is too narrow, the plugin uses the widest pane 
 
 ## Keyboard shortcuts
 
-Herdr supports direct `[[keys.command]]` bindings for plugin actions, so no leader key or plugin code change is required. Add whichever chords you prefer to `~/.config/herdr/config.toml`:
+Herdr supports direct `[[keys.command]]` bindings for plugin actions, so no leader key or plugin code change is required. On macOS, add the Command-arrow chords to `~/.config/herdr/config.toml`:
 
 ```toml
 [[keys.command]]
-key = "alt+shift+left"
+key = "cmd+shift+left"
 type = "plugin_action"
 command = "coryfklein.herdr-layout.move-left"
 description = "move layout left one column"
 
 [[keys.command]]
-key = "alt+shift+right"
+key = "cmd+shift+right"
 type = "plugin_action"
 command = "coryfklein.herdr-layout.move-right"
 description = "move layout right one column"
 
 [[keys.command]]
-key = "ctrl+alt+shift+left"
+key = "ctrl+cmd+shift+left"
 type = "plugin_action"
 command = "coryfklein.herdr-layout.align-left"
 description = "align layout left"
 
 [[keys.command]]
-key = "ctrl+alt+shift+right"
+key = "ctrl+cmd+shift+right"
 type = "plugin_action"
 command = "coryfklein.herdr-layout.align-right"
 description = "align layout right"
 ```
 
-Add bindings for `toggle`, `wider`, `narrower`, `reset-width`, and `center` in the same way. Then run `herdr server reload-config`. Herdr's key strings can also use `cmd`, but the actual sequence depends on your terminal. Ghostty may need to translate Command chords before Herdr sees them.
+Add bindings for `toggle`, `wider`, `narrower`, `reset-width`, and `center` in the same way. Then run `herdr server reload-config`. Other terminals may encode Command differently; bind the key name matching the sequence Herdr receives.
 
 Herdr currently clamps each split to at least 10% of its parent. Edge alignment uses a single margin pane and reaches the actual edge. Between an edge and the nearest position allowed by a three-pane layout, a one-column move cannot be represented; the first move inward jumps to the nearest allowed position.
 

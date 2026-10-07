@@ -6,8 +6,10 @@ import json
 import math
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
+import termios
 import time
 
 DEFAULT_COLUMNS = 90
@@ -213,6 +215,13 @@ def rebuild(state):
     state.update(left=left, right=right, area_width=width)
 
 
+def focus_content(state):
+    if state["left"]:
+        command("pane", "focus", "--pane", state["left"], "--direction", "right")
+    elif state["right"]:
+        command("pane", "focus", "--pane", state["right"], "--direction", "left")
+
+
 def state_directory():
     directory = os.environ.get("HERDR_PLUGIN_STATE_DIR")
     if directory:
@@ -270,8 +279,8 @@ def action(name):
                     raise ValueError("layout is active in another pane")
                 return
             if state and name in ("toggle", "leave"):
-                if pane != state["pane"]:
-                    raise ValueError("focus the layout pane first")
+                if pane not in (state["pane"], state["left"], state["right"]):
+                    raise ValueError("focus a layout pane first")
                 leave(state)
                 del locked.states[socket]
                 locked.save()
@@ -288,8 +297,8 @@ def action(name):
             return
         if not state:
             raise ValueError("layout is not active")
-        if pane != state["pane"]:
-            raise ValueError("focus the layout pane first")
+        if pane not in (state["pane"], state["left"], state["right"]):
+            raise ValueError("focus a layout pane first")
         default_columns, step = config()
         if name == "wider":
             state["columns"] += step
@@ -316,6 +325,7 @@ def action(name):
             raise ValueError(f"unknown action: {name}")
         rebuild(state)
         locked.save()
+        focus_content(state)
 
 
 def watch(watch_id):
@@ -338,10 +348,21 @@ def watch(watch_id):
 
 
 def spacer_loop():
+    if os.isatty(0):
+        attributes = termios.tcgetattr(0)
+        attributes[3] &= ~(termios.ECHO | termios.ICANON)
+        attributes[6][termios.VMIN] = 1
+        attributes[6][termios.VTIME] = 0
+        termios.tcsetattr(0, termios.TCSANOW, attributes)
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        signal.signal(signal.SIGQUIT, signal.SIG_IGN)
     sys.stdout.write("\x1b[2J\x1b[H\x1b[?25l")
     sys.stdout.flush()
     while True:
-        time.sleep(3600)
+        if os.isatty(0):
+            os.read(0, 4096)
+        else:
+            time.sleep(3600)
 
 
 if __name__ == "__main__":
