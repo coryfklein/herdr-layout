@@ -53,7 +53,7 @@ When the available terminal area is too narrow, the plugin uses the widest pane 
 
 ## Keyboard shortcuts
 
-Herdr supports direct `[[keys.command]]` bindings for plugin actions, so no leader key or plugin code change is required. On macOS, add the Command-arrow chords to `~/.config/herdr/config.toml`:
+Herdr supports direct `[[keys.command]]` bindings for plugin actions, with no leader key. If your terminal passes Command-arrow chords through to Herdr, add them to `~/.config/herdr/config.toml`:
 
 ```toml
 [[keys.command]]
@@ -93,7 +93,58 @@ command = "coryfklein.herdr-layout.align-right"
 description = "align layout right"
 ```
 
-Ghostty can translate Command Shift arrow keys into Alt Shift terminal sequences; add matching `alt+shift+up` / `alt+shift+down` bindings when using that translation. Add bindings for `toggle`, `reset-width`, and `center` in the same way. Then run `herdr server reload-config`. Other terminals may encode Command differently; bind the key name matching the sequence Herdr receives.
+The physical shortcuts depend on what your terminal sends to Herdr. Add bindings for `toggle`, `reset-width`, and `center` in the same way.
+
+### Ghostty on macOS
+
+This Ghostty setup uses two mapping layers. Ghostty catches the physical Command-arrow chord (`super` means Command) and sends a CSI sequence. Herdr reads `1;4` as Alt+Shift and `1;8` as Ctrl+Alt+Shift, then invokes the plugin action bound to that key. You press Command, not Option/Alt. These shortcuts do not use Herdr's leader.
+
+Add these lines to Ghostty's `config.ghostty`:
+
+```ini
+keybind = super+shift+arrow_left=csi:1;4D
+keybind = super+shift+arrow_right=csi:1;4C
+keybind = super+shift+arrow_up=csi:1;4A
+keybind = super+shift+arrow_down=csi:1;4B
+keybind = super+ctrl+shift+arrow_left=csi:1;8D
+keybind = super+ctrl+shift+arrow_right=csi:1;8C
+```
+
+Then add the corresponding bindings to `~/.config/herdr/config.toml`:
+
+```toml
+[[keys.command]]
+key = "alt+shift+left"
+type = "plugin_action"
+command = "coryfklein.herdr-layout.move-left"
+
+[[keys.command]]
+key = "alt+shift+right"
+type = "plugin_action"
+command = "coryfklein.herdr-layout.move-right"
+
+[[keys.command]]
+key = "alt+shift+up"
+type = "plugin_action"
+command = "coryfklein.herdr-layout.wider"
+
+[[keys.command]]
+key = "alt+shift+down"
+type = "plugin_action"
+command = "coryfklein.herdr-layout.narrower"
+
+[[keys.command]]
+key = "ctrl+alt+shift+left"
+type = "plugin_action"
+command = "coryfklein.herdr-layout.align-left"
+
+[[keys.command]]
+key = "ctrl+alt+shift+right"
+type = "plugin_action"
+command = "coryfklein.herdr-layout.align-right"
+```
+
+For example, **Cmd+Shift+Left** becomes `CSI 1;4D`, which Herdr matches as `alt+shift+left` and runs `move-left`. **Cmd+Ctrl+Shift+Right** becomes `CSI 1;8C` and runs `align-right`. Reload Ghostty's config, then run `herdr server reload-config`. See [Ghostty's keybinding syntax](https://ghostty.org/docs/config/keybind) and [Herdr's custom command bindings](https://herdr.dev/docs/configuration/#custom-command-keybindings) for other terminals or chords.
 
 Herdr currently clamps each split to at least 10% of its parent. Edge alignment uses a single margin pane and reaches the layout region’s edge. Between an edge and the nearest position allowed by a three-pane layout, a small move cannot be represented; the first move inward jumps to the nearest allowed position.
 
@@ -105,4 +156,4 @@ python3 -m unittest discover -s tests
 
 ## Credits
 
-The pane move and placeholder approach was adapted from [herdr-zen](https://github.com/y4m3/herdr-zen), licensed under MIT. See [LICENSE](LICENSE).
+The original layout approach was adapted from [herdr-zen](https://github.com/y4m3/herdr-zen), licensed under MIT. See [LICENSE](LICENSE).
