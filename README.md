@@ -97,54 +97,14 @@ The physical shortcuts depend on what your terminal sends to Herdr. Add bindings
 
 ### Ghostty on macOS
 
-This Ghostty setup uses two mapping layers. Ghostty catches the physical Command-arrow chord (`super` means Command) and sends a CSI sequence. Herdr reads `1;4` as Alt+Shift and `1;8` as Ctrl+Alt+Shift, then invokes the plugin action bound to that key. You press Command, not Option/Alt. These shortcuts do not use Herdr's leader.
-
-Add these lines to Ghostty's `config.ghostty`:
+Herdr requests the Kitty keyboard protocol, which lets Ghostty send Command-modified arrows directly to the `cmd` bindings above. Ghostty already leaves Cmd+Shift+Left/Right and Cmd+Ctrl+Shift+Left/Right free. Its default Cmd+Shift+Up/Down bindings jump between shell prompts, so free just those two chords in Ghostty's `config.ghostty`:
 
 ```ini
-keybind = super+shift+arrow_left=csi:1;4D
-keybind = super+shift+arrow_right=csi:1;4C
-keybind = super+shift+arrow_up=csi:1;4A
-keybind = super+shift+arrow_down=csi:1;4B
-keybind = super+ctrl+shift+arrow_left=csi:1;8D
-keybind = super+ctrl+shift+arrow_right=csi:1;8C
+keybind = super+shift+arrow_up=unbind
+keybind = super+shift+arrow_down=unbind
 ```
 
-Then add the corresponding bindings to `~/.config/herdr/config.toml`:
-
-```toml
-[[keys.command]]
-key = "alt+shift+left"
-type = "plugin_action"
-command = "coryfklein.herdr-layout.move-left"
-
-[[keys.command]]
-key = "alt+shift+right"
-type = "plugin_action"
-command = "coryfklein.herdr-layout.move-right"
-
-[[keys.command]]
-key = "alt+shift+up"
-type = "plugin_action"
-command = "coryfklein.herdr-layout.wider"
-
-[[keys.command]]
-key = "alt+shift+down"
-type = "plugin_action"
-command = "coryfklein.herdr-layout.narrower"
-
-[[keys.command]]
-key = "ctrl+alt+shift+left"
-type = "plugin_action"
-command = "coryfklein.herdr-layout.align-left"
-
-[[keys.command]]
-key = "ctrl+alt+shift+right"
-type = "plugin_action"
-command = "coryfklein.herdr-layout.align-right"
-```
-
-For example, **Cmd+Shift+Left** becomes `CSI 1;4D`, which Herdr matches as `alt+shift+left` and runs `move-left`. **Cmd+Ctrl+Shift+Right** becomes `CSI 1;8C` and runs `align-right`. Reload Ghostty's config, then run `herdr server reload-config`. See [Ghostty's keybinding syntax](https://ghostty.org/docs/config/keybind) and [Herdr's custom command bindings](https://herdr.dev/docs/configuration/#custom-command-keybindings) for other terminals or chords.
+`super` is Ghostty's name for Command. Reload Ghostty's config, then run `herdr server reload-config` after changing Herdr's bindings. See [Ghostty's keybinding syntax](https://ghostty.org/docs/config/keybind) and [Herdr's keyboard guide](https://herdr.dev/docs/keyboard/) for other terminals or chords.
 
 Herdr currently clamps each split to at least 10% of its parent. Edge alignment uses a single margin pane and reaches the layout region’s edge. Between an edge and the nearest position allowed by a three-pane layout, a small move cannot be represented; the first move inward jumps to the nearest allowed position.
 
