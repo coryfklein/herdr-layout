@@ -53,7 +53,7 @@ When the available terminal area is too narrow, the plugin uses the widest pane 
 
 ## Keyboard shortcuts
 
-Herdr supports direct `[[keys.command]]` bindings for plugin actions, with no leader key. If your terminal passes Command-arrow chords through to Herdr, add them to `~/.config/herdr/config.toml`:
+Herdr supports direct `[[keys.command]]` bindings for plugin actions, with no leader key. For the Ghostty shortcuts below, add these bindings to `~/.config/herdr/config.toml`:
 
 ```toml
 [[keys.command]]
@@ -93,18 +93,18 @@ command = "coryfklein.herdr-layout.align-right"
 description = "align layout right"
 ```
 
-The physical shortcuts depend on what your terminal sends to Herdr. Add bindings for `toggle`, `reset-width`, and `center` in the same way.
+Add bindings for `toggle`, `reset-width`, and `center` in the same way. Other terminals may need their own configuration to forward these chords.
 
 ### Ghostty on macOS
 
-Herdr requests the Kitty keyboard protocol, which lets Ghostty send Command-modified arrows directly to the `cmd` bindings above. Ghostty already leaves Cmd+Shift+Left/Right and Cmd+Ctrl+Shift+Left/Right free. Its default Cmd+Shift+Up/Down bindings jump between shell prompts, so free just those two chords in Ghostty's `config.ghostty`:
+This setup works with Ghostty 1.3.1 and Herdr 0.9.3 on macOS. Herdr requests the Kitty keyboard protocol, so Ghostty sends Command-modified arrows directly to the `cmd` bindings above. Ghostty leaves Cmd+Shift+Left/Right and Cmd+Ctrl+Shift+Left/Right free. Its default Cmd+Shift+Up/Down bindings jump between shell prompts, so free those two chords in Ghostty's `config.ghostty`:
 
 ```ini
 keybind = super+shift+arrow_up=unbind
 keybind = super+shift+arrow_down=unbind
 ```
 
-`super` is Ghostty's name for Command. Reload Ghostty's config, then run `herdr server reload-config` after changing Herdr's bindings. See [Ghostty's keybinding syntax](https://ghostty.org/docs/config/keybind) and [Herdr's keyboard guide](https://herdr.dev/docs/keyboard/) for other terminals or chords.
+`super` is Ghostty's name for Command. Press `Cmd+Shift+,` to reload Ghostty's config. Run `herdr server reload-config` after changing Herdr's bindings. No CSI translation is needed. See [Ghostty's keybinding syntax](https://ghostty.org/docs/config/keybind) and [Herdr's keyboard guide](https://herdr.dev/docs/keyboard/) for other terminals or chords.
 
 Herdr currently clamps each split to at least 10% of its parent. Edge alignment uses a single margin pane and reaches the layout region’s edge. Between an edge and the nearest position allowed by a three-pane layout, a small move cannot be represented; the first move inward jumps to the nearest allowed position.
 
