@@ -31,13 +31,13 @@ command = ["bin/herdr-layout", "reset-width"]
 
 [[actions]]
 id = "move-left"
-title = "Move one column left"
+title = "Move by configured columns left"
 contexts = ["pane"]
 command = ["bin/herdr-layout", "move-left"]
 
 [[actions]]
 id = "move-right"
-title = "Move one column right"
+title = "Move by configured columns right"
 contexts = ["pane"]
 command = ["bin/herdr-layout", "move-right"]
 
@@ -58,3 +58,9 @@ id = "center"
 title = "Center pane"
 contexts = ["pane"]
 command = ["bin/herdr-layout", "center"]
+
+[[panes]]
+id = "spacer"
+title = "Layout spacer"
+placement = "split"
+command = ["bin/herdr-layout", "spacer"]
