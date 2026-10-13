@@ -36,6 +36,49 @@ accepts idempotent `enter` and `leave` commands. They use the current pane's
 `HERDR_SOCKET_PATH` and `HERDR_PANE_ID` and run synchronously, so a wrapper
 can enter the layout, run the program, then restore the pane when it exits.
 
+### Codex example
+
+I source this `codex` function from my `.zshrc`. It gives interactive Codex
+sessions the configured column width when launched inside Herdr. Replace
+`layout_bin` with the path to your `herdr-layout` executable. `command codex`
+calls the installed Codex executable (mine is `~/.local/bin/codex`) without
+calling this function again.
+
+```zsh
+codex() {
+    if [[ ! -o interactive || ! -t 0 || ! -t 1 ]]; then
+        command codex "$@"
+        return
+    fi
+
+    case "$1" in
+        -h|--help|-V|--version|agents|exec|e|review|login|logout|mcp|plugin|app-server|remote-control|app|completion|update|doctor|sandbox|debug|apply|a|queue|archive|delete|migrate-rollouts|unarchive|cloud|exec-server|features|help)
+            command codex "$@"
+            return ;;
+    esac
+
+    if [[ ${HERDR_ENV-} != 1 || -z ${HERDR_SOCKET_PATH-} || -z ${HERDR_PANE_ID-} ]]; then
+        command codex "$@"
+        return
+    fi
+
+    local layout_bin=$HOME/code/herdr-layout/bin/herdr-layout
+    if [[ ! -x $layout_bin ]]; then
+        print -u2 "herdr-layout is missing: $layout_bin"
+        return 1
+    fi
+
+    "$layout_bin" enter || return
+    HERDR_AGENT=codex command codex "$@"
+    local codex_status=$?
+    "$layout_bin" leave || print -u2 'herdr-layout could not restore the pane'
+    return "$codex_status"
+}
+
+# Run Codex without changing the pane layout.
+alias ccodex='command codex'
+```
+
 ## Width settings
 
 Create `config.json` in the directory printed by `herdr plugin config-dir coryfklein.herdr-layout`:
