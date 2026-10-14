@@ -2,6 +2,8 @@
 
 A [Herdr](https://herdr.dev) plugin that gives a live terminal pane a readable width measured in character columns. It adds real Herdr margin panes around the current pane, so mouse selection stays within the content pane.
 
+<img width="2000" height="787" alt="Capture 2026-10-14 at 11 58 59" src="https://github.com/user-attachments/assets/b3297451-da2b-4fef-8eab-8966f877db38" />
+
 The margins run the plugin spacer directly, without starting a shell or loading `.zshrc`. They ignore typed input. Layout shortcuts also work after a margin is clicked and return focus to the content pane.
 Width and position changes resize existing margin panes. Entering or leaving exact edge alignment changes the number of margins.
 
